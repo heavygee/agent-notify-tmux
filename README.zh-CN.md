@@ -102,6 +102,13 @@ ports:
 
 安装时输入 `http://localhost:8080` 作为 ntfy URL 即可。
 
+## 验证
+
+发布前建议先跑：
+
+- `bun install && bun run test:ci`
+- `bun run scan:secrets`（需要 Docker）
+
 ## 许可证
 
 MIT

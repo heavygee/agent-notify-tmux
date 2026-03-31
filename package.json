@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "bun src/index.ts",
     "build": "bun build --compile --minify --sourcemap src/index.ts --outfile dist/agent-notify",
-    "test": "bun test"
+    "test": "bun test",
+    "test:ci": "bun test",
+    "scan:secrets": "docker run --rm -v \"$PWD\":/path zricethezav/gitleaks:latest detect --source /path --verbose --redact --exit-code 1"
   },
   "devDependencies": {
     "@types/bun": "latest"

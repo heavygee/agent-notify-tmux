@@ -102,6 +102,13 @@ ports:
 
 Then enter `http://localhost:8080` as the ntfy URL during setup.
 
+## Verification
+
+Run these checks before merging:
+
+- `bun install && bun run test:ci`
+- `bun run scan:secrets` (requires Docker)
+
 ## License
 
 MIT
