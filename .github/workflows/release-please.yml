@@ -23,7 +23,7 @@ jobs:
   build:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created }}
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -35,21 +35,21 @@ jobs:
         run: bun install
 
       - name: Build x64
-        run: bun build --compile --minify --sourcemap --target=bun-darwin-x64 src/index.ts --outfile dist/agent-notify-x64
+        run: bun build --compile --minify --sourcemap --target=bun-linux-x64 src/index.ts --outfile dist/agent-notify-x64
 
       - name: Build arm64
-        run: bun build --compile --minify --sourcemap --target=bun-darwin-arm64 src/index.ts --outfile dist/agent-notify-arm64
+        run: bun build --compile --minify --sourcemap --target=bun-linux-arm64 src/index.ts --outfile dist/agent-notify-arm64
 
       - name: Compress binaries
         run: |
           cd dist
-          tar -czvf agent-notify-darwin-x64.tar.gz agent-notify-x64
-          tar -czvf agent-notify-darwin-arm64.tar.gz agent-notify-arm64
+          tar -czvf agent-notify-linux-x64.tar.gz agent-notify-x64
+          tar -czvf agent-notify-linux-arm64.tar.gz agent-notify-arm64
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.release-please.outputs.tag_name }}
           files: |
-            dist/agent-notify-darwin-x64.tar.gz
-            dist/agent-notify-darwin-arm64.tar.gz
+            dist/agent-notify-linux-x64.tar.gz
+            dist/agent-notify-linux-arm64.tar.gz

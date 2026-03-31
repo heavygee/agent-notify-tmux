@@ -1,26 +1,28 @@
-# agent-notify
+# agent-notify-tmux
 
 [English](./README.md)
 
-macOS 上 AI 编程助手的通知提醒工具。
+Linux 上 AI 编程助手的通知提醒工具。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/cfngc4594/agent-notify/main/install.sh | bash
+# 使用 heavygee 仓库
+curl -fsSL https://raw.githubusercontent.com/heavygee/agent-notify-tmux/main/install.sh | bash
 ```
 
 ## 功能
 
 - 支持 [Claude Code](https://docs.anthropic.com/en/docs/claude-code)、[Cursor](https://cursor.sh)、[OpenAI Codex](https://openai.com/index/openai-codex/) 和命令行 (CLI)
-- 音效提示（系统声音）
-- macOS 通知（通知中心）
-- 语音播报（say 命令）
+- 音效提示（终端响铃）
+- 桌面通知（notify-send）
+- 语音播报（自定义本地命令，`~/coding/server-setup/.cursor/rules/system-voice.mdc`）
+- tmux 跑马灯状态栏提醒（右下角 status-right）
 - ntfy 推送通知（支持自托管或 ntfy.sh）
 
 任务完成时通知你。
 
 ![平台和功能选择](./assets/image1.png)
 
-![macOS 通知](./assets/image2.png)
+![Linux 桌面通知](./assets/image2.png)
 
 ![手机上的 ntfy 推送通知](./assets/image3.png)
 
@@ -29,20 +31,27 @@ curl -fsSL https://raw.githubusercontent.com/cfngc4594/agent-notify/main/install
 ### 一行命令安装（推荐）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/cfngc4594/agent-notify/main/install.sh | bash
+# 可选：在发布下载时优先使用你的 fork
+export AGENT_NOTIFY_REPO="https://github.com/<your-user>/agent-notify-tmux"
+curl -fsSL https://raw.githubusercontent.com/heavygee/agent-notify-tmux/main/install.sh | bash
 ```
 
 ### 手动下载
 
 ```bash
-# Apple Silicon (M1/M2/M3/M4)
-curl -fsSL https://github.com/cfngc4594/agent-notify/releases/latest/download/agent-notify-arm64 -o agent-notify
+# Linux ARM64
+# 替换为你的仓库地址
+AGENT_NOTIFY_REPO="https://github.com/<your-user>/agent-notify-tmux"
+curl -fsSL "$AGENT_NOTIFY_REPO/releases/latest/download/agent-notify-linux-arm64.tar.gz" -o agent-notify-linux-arm64.tar.gz
+tar -xzf agent-notify-linux-arm64.tar.gz && chmod +x ./agent-notify-arm64
 
-# Intel Mac
-curl -fsSL https://github.com/cfngc4594/agent-notify/releases/latest/download/agent-notify-x64 -o agent-notify
+# Linux x64
+AGENT_NOTIFY_REPO="https://github.com/<your-user>/agent-notify-tmux"
+curl -fsSL "$AGENT_NOTIFY_REPO/releases/latest/download/agent-notify-linux-x64.tar.gz" -o agent-notify-linux-x64.tar.gz
+tar -xzf agent-notify-linux-x64.tar.gz && chmod +x ./agent-notify-x64
 
-chmod +x agent-notify
-./agent-notify
+./agent-notify-arm64  # ARM64 主机上运行
+./agent-notify-x64    # x64 主机上运行
 ```
 
 ### 从源码构建
@@ -96,3 +105,7 @@ ports:
 ## 许可证
 
 MIT
+
+## 致谢
+
+灵感来源于 `cfngc4594/agent-notify`。

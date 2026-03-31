@@ -1,23 +1,34 @@
 import type { SoundName } from "../types";
 
-/** Play macOS system sound */
-export async function playSound(name: SoundName): Promise<void> {
-  const soundPath = `/System/Library/Sounds/${name}.aiff`;
+const bellPlayers: Array<{ command: string; args: string[] }> = [
+  { command: "paplay", args: ["/usr/share/sounds/alsa/Front_Center.wav"] },
+  { command: "aplay", args: ["/usr/share/sounds/alsa/Front_Center.wav"] },
+  { command: "printf", args: ["\\a"] },
+];
 
-  const proc = Bun.spawn(["afplay", soundPath], {
-    stdout: "ignore",
-    stderr: "ignore",
-  });
+async function playBell() {
+  for (const player of bellPlayers) {
+    try {
+      const proc = Bun.spawn([player.command, ...player.args], {
+        stdout: "ignore",
+        stderr: "ignore",
+      });
+      await proc.exited;
+      if (proc.exitCode === 0) {
+        return;
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+}
 
-  await proc.exited;
+/** Play a terminal/system bell */
+export async function playSound(_name: SoundName): Promise<void> {
+  await playBell();
 }
 
 /** Play sound async (non-blocking) */
-export function playSoundAsync(name: SoundName): void {
-  const soundPath = `/System/Library/Sounds/${name}.aiff`;
-
-  Bun.spawn(["afplay", soundPath], {
-    stdout: "ignore",
-    stderr: "ignore",
-  });
+export function playSoundAsync(_name: SoundName): void {
+  void playSound(_name);
 }

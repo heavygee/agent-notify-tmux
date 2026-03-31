@@ -12,6 +12,7 @@ export interface FeatureOptions {
   sound: boolean;
   notification: boolean;
   voice: boolean;
+  tmux: boolean;
   ntfy: boolean;
   ntfyConfig?: NtfyConfig;
 }
@@ -52,6 +53,56 @@ const CURSOR_SCRIPT_CONFIG_TEMPLATES = [
     sayKey: "cursorSayDone",
   },
 ] as const satisfies readonly ScriptConfig[];
+
+const DEFAULT_VOICE_COMMAND = "$HOME/coding/server-setup/.cursor/rules/system-voice.mdc";
+const TMUX_MARQUEE_WIDTH = 28;
+const TMUX_MARQUEE_STEPS = 24;
+
+function shellSingleQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\"'\"'")}'`;
+}
+
+function addTmuxMarquee(lines: string[], messageExpr: string) {
+  lines.push("# Show completion marquee on tmux status-right");
+  lines.push('if [ -n "${TMUX:-}" ] && command -v tmux >/dev/null 2>&1; then');
+  lines.push("  __agent_notify_tmux_old_status_right=\"$(tmux show-option -gv status-right 2>/dev/null || true)\"");
+  lines.push(`  __agent_notify_tmux_text=${messageExpr}`);
+  lines.push(`  __agent_notify_tmux_frame_width=${TMUX_MARQUEE_WIDTH}`);
+  lines.push("  (");
+  lines.push("    i=0");
+  lines.push(`    while [ "$i" -lt ${TMUX_MARQUEE_STEPS} ]; do`);
+  lines.push('      __agent_notify_tmux_frame="${__agent_notify_tmux_text:0:$__agent_notify_tmux_frame_width}"');
+  lines.push("      if [ -n \"$__agent_notify_tmux_frame\" ]; then");
+  lines.push('        tmux set-option -g status-right "#[fg=yellow,bg=black]${__agent_notify_tmux_frame}#[default] ${__agent_notify_tmux_old_status_right}"');
+  lines.push("      fi");
+  lines.push("      __agent_notify_tmux_text=\"${__agent_notify_tmux_text:1}${__agent_notify_tmux_text:0:1}\"");
+  lines.push("      i=$((i + 1))");
+  lines.push("      sleep 0.2");
+  lines.push("    done");
+  lines.push('    tmux set-option -g status-right "${__agent_notify_tmux_old_status_right}"');
+  lines.push("  ) >/dev/null 2>&1 &");
+  lines.push("fi");
+}
+
+function addNtfyPush(
+  lines: string[],
+  messageExpr: string,
+  titleExpr: string,
+  ntfyUrl: string,
+  priority?: string
+) {
+  const priorityHeader = priority ? `-H "Priority: ${priority}" ` : "";
+  lines.push("# Send ntfy push notification");
+  lines.push("if command -v curl >/dev/null 2>&1; then");
+  lines.push('  if [ -n "${NTFY_TOKEN:-}" ]; then');
+  lines.push(`    curl -s -d ${messageExpr} -H "Title: ${titleExpr}" ${priorityHeader}-H "Authorization: Bearer ${'$'}NTFY_TOKEN" ${ntfyUrl} > /dev/null 2>&1 &`);
+  lines.push("  elif [ -n \"${NTFY_USER:-}\" ] && [ -n \"${NTFY_PASSWORD:-}\" ]; then");
+  lines.push(`    curl -s -d ${messageExpr} -H "Title: ${titleExpr}" ${priorityHeader}-u "${'$'}NTFY_USER:${'$'}NTFY_PASSWORD" ${ntfyUrl} > /dev/null 2>&1 &`);
+  lines.push("  else");
+  lines.push(`    curl -s -d ${messageExpr} -H "Title: ${titleExpr}" ${priorityHeader}${ntfyUrl} > /dev/null 2>&1 &`);
+  lines.push("  fi");
+  lines.push("fi");
+}
 
 /** Get Claude script configs with translations */
 export function getClaudeScriptConfigs() {
@@ -115,7 +166,7 @@ export const CURSOR_SCRIPT_NAME_LIST: readonly CursorScriptName[] =
 /** @deprecated Use CLAUDE_SCRIPT_NAME_LIST instead */
 export const SCRIPT_NAME_LIST = CLAUDE_SCRIPT_NAME_LIST;
 
-/** Generate script content with optional sound + macOS notification + voice + ntfy */
+/** Generate script content with optional system notification + voice + tmux marquee + ntfy */
 export function createScript(
   sound: SoundName,
   comment: string,
@@ -132,27 +183,37 @@ export function createScript(
 
   if (options.sound) {
     lines.push("# Play system sound");
-    lines.push(`afplay /System/Library/Sounds/${sound}.aiff &`);
+    lines.push("printf '\\a'");
     lines.push("");
   }
 
   if (options.notification) {
-    lines.push("# Show macOS notification");
-    lines.push(`osascript -e 'display notification "${notifyMsg}" with title "${notifyTitle}"'`);
+    lines.push("# Show desktop notification");
+    lines.push("if command -v notify-send >/dev/null 2>&1; then");
+    lines.push(`  notify-send ${shellSingleQuote(notifyTitle)} ${shellSingleQuote(notifyMsg)}`);
+    lines.push("fi");
     lines.push("");
   }
 
   if (options.voice) {
     lines.push("# Voice announcement");
-    lines.push(`say "${sayText}"`);
+    lines.push(`if [ -x "${DEFAULT_VOICE_COMMAND}" ]; then`);
+    lines.push(`  "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(sayText)}`);
+    lines.push(`elif command -v "${DEFAULT_VOICE_COMMAND}" >/dev/null 2>&1; then`);
+    lines.push(`  sh "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(sayText)}`);
+    lines.push("fi");
+    lines.push("");
+  }
+
+  if (options.tmux) {
+    addTmuxMarquee(lines, shellSingleQuote(`${notifyTitle}: ${notifyMsg}`));
     lines.push("");
   }
 
   if (options.ntfy && options.ntfyConfig) {
     const { url, topic } = options.ntfyConfig;
     const ntfyUrl = url.endsWith("/") ? `${url}${topic}` : `${url}/${topic}`;
-    lines.push("# Send ntfy push notification");
-    lines.push(`curl -s -d "${notifyMsg}" -H "Title: ${notifyTitle}" "${ntfyUrl}" > /dev/null 2>&1 &`);
+    addNtfyPush(lines, shellSingleQuote(notifyMsg), shellSingleQuote(notifyTitle), ntfyUrl);
     lines.push("");
   }
 
@@ -227,8 +288,8 @@ export function generateCodexScript(
     "if command -v jq &> /dev/null; then",
     '  TYPE=$(echo "$JSON" | jq -r \'.type // empty\')',
     "else",
-    '  # Fallback: extract type using grep/sed',
-    '  TYPE=$(echo "$JSON" | grep -o \'"type"[[:space:]]*:[[:space:]]*"[^"]*"\' | sed \'s/.*"\\([^"]*\\)"$/\\1/\')',
+    "  # Fallback: extract type using grep/sed",
+    '  TYPE=$(echo "$JSON" | grep -o \'"type"[[:space:]]*:[[:space:]]*"[^"]*"\' | sed \'s/.*"\\([^\"]*\\)"$/\\1/\')',
     "fi",
     "",
     '# Only notify on agent-turn-complete',
@@ -240,27 +301,37 @@ export function generateCodexScript(
 
   if (options.sound) {
     lines.push("# Play system sound");
-    lines.push(`afplay /System/Library/Sounds/${sound}.aiff &`);
+    lines.push("printf '\\a'");
     lines.push("");
   }
 
   if (options.notification) {
-    lines.push("# Show macOS notification");
-    lines.push(`osascript -e 'display notification "${notifyMsg}" with title "${notifyTitle}"'`);
+    lines.push("# Show desktop notification");
+    lines.push("if command -v notify-send >/dev/null 2>&1; then");
+    lines.push(`  notify-send ${shellSingleQuote(notifyTitle)} ${shellSingleQuote(notifyMsg)}`);
+    lines.push("fi");
     lines.push("");
   }
 
   if (options.voice) {
     lines.push("# Voice announcement");
-    lines.push(`say "${sayText}"`);
+    lines.push(`if [ -x "${DEFAULT_VOICE_COMMAND}" ]; then`);
+    lines.push(`  "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(sayText)}`);
+    lines.push(`elif command -v "${DEFAULT_VOICE_COMMAND}" >/dev/null 2>&1; then`);
+    lines.push(`  sh "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(sayText)}`);
+    lines.push("fi");
+    lines.push("");
+  }
+
+  if (options.tmux) {
+    addTmuxMarquee(lines, shellSingleQuote(`${notifyTitle}: ${notifyMsg}`));
     lines.push("");
   }
 
   if (options.ntfy && options.ntfyConfig) {
     const { url, topic } = options.ntfyConfig;
     const ntfyUrl = url.endsWith("/") ? `${url}${topic}` : `${url}/${topic}`;
-    lines.push("# Send ntfy push notification");
-    lines.push(`curl -s -d "${notifyMsg}" -H "Title: ${notifyTitle}" "${ntfyUrl}" > /dev/null 2>&1 &`);
+    addNtfyPush(lines, shellSingleQuote(notifyMsg), shellSingleQuote(notifyTitle), ntfyUrl);
     lines.push("");
   }
 
@@ -308,38 +379,67 @@ export function generateCliScript(
   ];
 
   if (options.sound) {
-    lines.push(`  afplay /System/Library/Sounds/${sound}.aiff &`);
+    lines.push("  printf '\\a'");
   }
 
   if (options.notification) {
-    lines.push(`  osascript -e 'display notification "${successMsg}" with title "${successTitle}"'`);
+    lines.push("  if command -v notify-send >/dev/null 2>&1; then");
+    lines.push(`    notify-send ${shellSingleQuote(successTitle)} ${shellSingleQuote(successMsg)}`);
+    lines.push("  fi");
   }
 
   if (options.voice) {
-    lines.push(`  say "${saySuccess}"`);
+    lines.push("  if [ -x \"${DEFAULT_VOICE_COMMAND}\" ]; then");
+    lines.push(`    "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(saySuccess)}`);
+    lines.push(`  elif command -v "${DEFAULT_VOICE_COMMAND}" >/dev/null 2>&1; then`);
+    lines.push(`    sh "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(saySuccess)}`);
+    lines.push("  fi");
   }
 
   if (ntfyUrl) {
-    lines.push(`  curl -s -d "${successMsg}" -H "Title: ${successTitle}" "${ntfyUrl}" > /dev/null 2>&1 &`);
+    addNtfyPush(lines, shellSingleQuote(successMsg), shellSingleQuote(successTitle), ntfyUrl);
+  }
+
+  if (options.tmux) {
+    addTmuxMarquee(lines, shellSingleQuote(`${successTitle}: ${successMsg}`));
   }
 
   lines.push("else");
   lines.push("  # Failure notification");
 
   if (options.sound) {
-    lines.push(`  afplay /System/Library/Sounds/Basso.aiff &`);
+    lines.push("  printf '\\a'");
   }
 
   if (options.notification) {
-    lines.push(`  osascript -e 'display notification "${failedMsg} (exit code: '$EXIT_STATUS')" with title "${failedTitle}"'`);
+    lines.push("  if command -v notify-send >/dev/null 2>&1; then");
+    lines.push(`    notify-send ${shellSingleQuote(failedTitle)} "${failedMsg} (exit code: ${'$'}EXIT_STATUS)"`);
+    lines.push("  fi");
   }
 
   if (options.voice) {
-    lines.push(`  say "${sayFailed}"`);
+    lines.push("  if [ -x \"${DEFAULT_VOICE_COMMAND}\" ]; then");
+    lines.push(`    "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(sayFailed)}`);
+    lines.push(`  elif command -v "${DEFAULT_VOICE_COMMAND}" >/dev/null 2>&1; then`);
+    lines.push(`    sh "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(sayFailed)}`);
+    lines.push("  fi");
   }
 
   if (ntfyUrl) {
-    lines.push(`  curl -s -d "${failedMsg} (exit code: $EXIT_STATUS)" -H "Title: ${failedTitle}" -H "Priority: high" "${ntfyUrl}" > /dev/null 2>&1 &`);
+    addNtfyPush(
+      lines,
+      `"${failedMsg} (exit code: ${'$'}EXIT_STATUS)"`,
+      shellSingleQuote(failedTitle),
+      ntfyUrl,
+      "high"
+    );
+  }
+
+  if (options.tmux) {
+    addTmuxMarquee(
+      lines,
+      `"${failedMsg} (exit code: ${'$'}EXIT_STATUS)"`
+    );
   }
 
   lines.push("fi");

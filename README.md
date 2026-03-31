@@ -1,26 +1,28 @@
-# agent-notify
+# agent-notify-tmux
 
 [中文](./README.zh-CN.md)
 
-Notifications for AI coding agents on macOS.
+Notifications for AI coding agents on Linux.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/cfngc4594/agent-notify/main/install.sh | bash
+# Use this project as packaged under heavygee:
+curl -fsSL https://raw.githubusercontent.com/heavygee/agent-notify-tmux/main/install.sh | bash
 ```
 
 ## Features
 
 - Works with [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Cursor](https://cursor.sh), [OpenAI Codex](https://openai.com/index/openai-codex/), and CLI
-- Sound effects (system sounds)
-- macOS notifications (Notification Center)
-- Voice announcements (say command)
+- Sound effects (terminal bell)
+- Desktop notifications (notify-send)
+- Voice announcements (custom local command in `~/coding/server-setup/.cursor/rules/system-voice.mdc`)
+- tmux marquee status-line alerts (bottom-right status-right)
 - ntfy push notifications (self-hosted or ntfy.sh)
 
 Get notified when task completes.
 
 ![Platform and feature selection](./assets/image1.png)
 
-![macOS notification](./assets/image2.png)
+![Desktop notification in Linux](./assets/image2.png)
 
 ![ntfy push notification on mobile](./assets/image3.png)
 
@@ -29,20 +31,27 @@ Get notified when task completes.
 ### One-line install (recommended)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/cfngc4594/agent-notify/main/install.sh | bash
+# Optional: prefer your own fork in release lookup
+export AGENT_NOTIFY_REPO="https://github.com/<your-user>/agent-notify-tmux"
+curl -fsSL https://raw.githubusercontent.com/heavygee/agent-notify-tmux/main/install.sh | bash
 ```
 
 ### Manual download
 
 ```bash
-# Apple Silicon (M1/M2/M3/M4)
-curl -fsSL https://github.com/cfngc4594/agent-notify/releases/latest/download/agent-notify-arm64 -o agent-notify
+# Linux ARM64
+# Replace with your fork/repo path if needed
+AGENT_NOTIFY_REPO="https://github.com/<your-user>/agent-notify-tmux"
+curl -fsSL "$AGENT_NOTIFY_REPO/releases/latest/download/agent-notify-linux-arm64.tar.gz" -o agent-notify-linux-arm64.tar.gz
+tar -xzf agent-notify-linux-arm64.tar.gz && chmod +x ./agent-notify-arm64
 
-# Intel Mac
-curl -fsSL https://github.com/cfngc4594/agent-notify/releases/latest/download/agent-notify-x64 -o agent-notify
+# Linux x64
+AGENT_NOTIFY_REPO="https://github.com/<your-user>/agent-notify-tmux"
+curl -fsSL "$AGENT_NOTIFY_REPO/releases/latest/download/agent-notify-linux-x64.tar.gz" -o agent-notify-linux-x64.tar.gz
+tar -xzf agent-notify-linux-x64.tar.gz && chmod +x ./agent-notify-x64
 
-chmod +x agent-notify
-./agent-notify
+./agent-notify-arm64  # on ARM64 hosts
+./agent-notify-x64    # on x64 hosts
 ```
 
 ### From source
@@ -96,3 +105,7 @@ Then enter `http://localhost:8080` as the ntfy URL during setup.
 ## License
 
 MIT
+
+## Credits
+
+Inspired by `cfngc4594/agent-notify`.

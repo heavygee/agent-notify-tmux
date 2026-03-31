@@ -114,12 +114,13 @@ async function main() {
   const features = await p.multiselect({
     message: t("featureToggle"),
     options: [
-      { value: "sound", label: t("featureSound"), hint: "afplay" },
-      { value: "notification", label: t("featureNotification"), hint: "osascript" },
-      { value: "voice", label: t("featureVoice"), hint: "say" },
+      { value: "sound", label: t("featureSound"), hint: "printf '\\a'" },
+      { value: "notification", label: t("featureNotification"), hint: "notify-send" },
+      { value: "voice", label: t("featureVoice"), hint: "system-voice script" },
+      { value: "tmux", label: t("featureTmux"), hint: "tmux" },
       { value: "ntfy", label: t("featureNtfy"), hint: "curl" },
     ],
-    initialValues: ["sound", "notification"],
+    initialValues: ["sound", "notification", "voice", "tmux", "ntfy"],
     required: true,
   });
 
@@ -173,6 +174,7 @@ async function main() {
     sound: features.includes("sound"),
     notification: features.includes("notification"),
     voice: features.includes("voice"),
+    tmux: features.includes("tmux"),
     ntfy: features.includes("ntfy"),
     ntfyConfig,
   };

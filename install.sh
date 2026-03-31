@@ -44,19 +44,19 @@ tildify() {
   fi
 }
 
-# Check if macOS
-if [[ $(uname) != "Darwin" ]]; then
-  error "agent-notify only supports macOS"
+# Check if Linux
+if [[ $(uname -s) != "Linux" ]]; then
+  error "agent-notify now targets Linux binaries in this fork"
 fi
 
 # Detect architecture
 case $(uname -m) in
-  arm64)
-    target="agent-notify-darwin-arm64"
+  arm64|aarch64)
+    target="agent-notify-linux-arm64"
     binary="agent-notify-arm64"
     ;;
-  x86_64)
-    target="agent-notify-darwin-x64"
+  x86_64|amd64)
+    target="agent-notify-linux-x64"
     binary="agent-notify-x64"
     ;;
   *)
@@ -64,9 +64,26 @@ case $(uname -m) in
     ;;
 esac
 
-# GitHub repo
-github_repo="https://github.com/cfngc4594/agent-notify"
-download_uri="$github_repo/releases/latest/download/$target.tar.gz"
+# GitHub repo candidates
+# Order:
+# 1) explicit override
+# 2) preferred repository (this forked project namespace)
+AGENT_NOTIFY_REPOS=(
+  "${AGENT_NOTIFY_REPO:-https://github.com/heavygee/agent-notify-tmux}"
+)
+
+download_uri=""
+for repo in "${AGENT_NOTIFY_REPOS[@]}"; do
+  candidate_uri="$repo/releases/latest/download/$target.tar.gz"
+  if curl --silent --fail --head "$candidate_uri" >/dev/null 2>&1; then
+    download_uri="$candidate_uri"
+    break
+  fi
+done
+
+if [[ -z "$download_uri" ]]; then
+  error "Could not resolve a valid release URL for $target"
+fi
 
 # Install location
 install_dir="$HOME/.local/bin"

@@ -24,7 +24,7 @@ const messages = {
     notifyTitlePermission: "Claude Code",
     notifyMsgPermission: "Permission required",
 
-    // Voice (say command)
+    // Voice (local voice command)
     sayDone: "Task completed",
     sayWaiting: "Waiting for input",
     sayPermission: "Permission required",
@@ -57,7 +57,8 @@ const messages = {
     // Feature toggles
     featureToggle: "Select features to enable (Space to toggle, Enter to confirm)",
     featureSound: "Sound effects",
-    featureNotification: "macOS notifications",
+    featureNotification: "Desktop notification",
+    featureTmux: "tmux status line marquee",
     featureVoice: "Voice announcements",
     featureNtfy: "ntfy push notifications",
     featureRequired: "Please select at least one feature",
@@ -187,7 +188,7 @@ const messages = {
     notifyTitlePermission: "Claude Code",
     notifyMsgPermission: "需要授权操作",
 
-    // Voice (say command)
+    // Voice (local voice command)
     sayDone: "任务完成",
     sayWaiting: "等待输入",
     sayPermission: "需要权限",
@@ -220,7 +221,8 @@ const messages = {
     // Feature toggles
     featureToggle: "选择要启用的功能 (空格切换, 回车确认)",
     featureSound: "音效",
-    featureNotification: "macOS 通知",
+    featureNotification: "桌面通知",
+    featureTmux: "tmux 状态栏跑马灯",
     featureVoice: "语音播报",
     featureNtfy: "ntfy 推送通知",
     featureRequired: "请至少选择一项功能",
