@@ -114,8 +114,7 @@ Run these checks before merging:
 You can wire local pre-commit checks so every commit also runs tests + secret scan:
 
 ```bash
-git config core.hooksPath .githooks
-chmod +x .githooks/pre-commit
+bun run setup:githooks
 ```
 
 ## License

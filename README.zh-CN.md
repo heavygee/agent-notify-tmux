@@ -114,8 +114,7 @@ ports:
 也可以启用本地提交前检查（每次提交前自动跑测试和密钥扫描）：
 
 ```bash
-git config core.hooksPath .githooks
-chmod +x .githooks/pre-commit
+bun run setup:githooks
 ```
 
 ## 许可证

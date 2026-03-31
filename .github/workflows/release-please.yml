@@ -54,6 +54,21 @@ jobs:
           tar -czvf agent-notify-linux-x64.tar.gz agent-notify-x64
           tar -czvf agent-notify-linux-arm64.tar.gz agent-notify-arm64
 
+      - name: Smoke test release artifacts
+        run: |
+          mkdir -p /tmp/agent-notify-smoke
+          cd dist
+          tar -xzf agent-notify-linux-x64.tar.gz -C /tmp/agent-notify-smoke
+          code=0
+          if ! timeout 5 /tmp/agent-notify-smoke/agent-notify-x64 >/tmp/agent-notify-smoke/smoke.log 2>&1; then
+            code=$?
+          fi
+          if [ "$code" -ne 124 ]; then
+            cat /tmp/agent-notify-smoke/smoke.log
+            exit "$code"
+          fi
+          grep -q "Select language / 选择语言" /tmp/agent-notify-smoke/smoke.log
+
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
