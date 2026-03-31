@@ -24,6 +24,8 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -33,6 +35,12 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+
+      - name: Run tests
+        run: bun run test:ci
+
+      - name: Scan secrets before publish
+        run: bun run scan:secrets
 
       - name: Build x64
         run: bun build --compile --minify --sourcemap --target=bun-linux-x64 src/index.ts --outfile dist/agent-notify-x64

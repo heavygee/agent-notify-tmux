@@ -109,6 +109,15 @@ Run these checks before merging:
 - `bun install && bun run test:ci`
 - `bun run scan:secrets` (requires Docker)
 
+### Commit gate
+
+You can wire local pre-commit checks so every commit also runs tests + secret scan:
+
+```bash
+git config core.hooksPath .githooks
+chmod +x .githooks/pre-commit
+```
+
 ## License
 
 MIT

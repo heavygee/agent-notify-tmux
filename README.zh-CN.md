@@ -109,6 +109,15 @@ ports:
 - `bun install && bun run test:ci`
 - `bun run scan:secrets`（需要 Docker）
 
+### 提交钩子
+
+也可以启用本地提交前检查（每次提交前自动跑测试和密钥扫描）：
+
+```bash
+git config core.hooksPath .githooks
+chmod +x .githooks/pre-commit
+```
+
 ## 许可证
 
 MIT

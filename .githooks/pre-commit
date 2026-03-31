@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v bun >/dev/null 2>&1; then
+  echo "bun is required for commit checks." >&2
+  exit 1
+fi
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "docker is required for secrets detection in pre-commit checks." >&2
+  exit 1
+fi
+
+bun run test:ci
+bun run scan:secrets
+
