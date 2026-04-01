@@ -22,6 +22,7 @@ import {
   readCursorHooksSafe,
   writeCursorHooks,
   mergeCursorHooksConfig as mergeCursorHooksConfigSettings,
+  getCursorHooksPayload,
 } from "./utils/settings";
 import { updateCodexNotify, getExistingCodexNotify, isOurCodexNotify, generateCodexConfigContent } from "./utils/codex-settings";
 import { formatFileDiff } from "./utils/diff";
@@ -330,7 +331,7 @@ async function main() {
 
   // Calculate Cursor changes
   if (enableCursor && cursorHooksResult?.ok) {
-    const existingHooks = cursorHooksResult.data.hooks as Record<string, unknown> | undefined;
+    const existingHooks = getCursorHooksPayload(cursorHooksResult.data);
     const newHooks = mergeCursorHooksConfig(existingHooks as Parameters<typeof mergeCursorHooksConfig>[0], binDir);
     cursorUpdatedHooks = mergeCursorHooksConfigSettings(cursorHooksResult.data, newHooks as Record<string, unknown>);
     shouldUpdateCursor = true;
