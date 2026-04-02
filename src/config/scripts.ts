@@ -55,11 +55,85 @@ const CURSOR_SCRIPT_CONFIG_TEMPLATES = [
 ] as const satisfies readonly ScriptConfig[];
 
 const DEFAULT_VOICE_COMMAND = "$HOME/coding/server-setup/.cursor/rules/system-voice.mdc";
+const DEFAULT_VOICE_MODE = "script";
+const DEFAULT_VOICE_STACK_URL = "http://localhost:18008/v1/audio/speech";
+const DEFAULT_VOICE_OPENAI_URL = "https://api.openai.com/v1/audio/speech";
+const DEFAULT_VOICE_MODEL = "tts-1";
+const DEFAULT_VOICE_NAME = "xev";
+const DEFAULT_VOICE_RESPONSE_FORMAT = "mp3";
 const TMUX_MARQUEE_WIDTH = 28;
 const TMUX_MARQUEE_STEPS = 24;
 
 function shellSingleQuote(value: string): string {
   return `'${value.replace(/'/g, "'\"'\"'")}'`;
+}
+
+/** Add voice announcement logic with optional modes:
+ * - script: run legacy local command (DEFAULT_VOICE_COMMAND)
+ * - local: call OpenAI-compatible speech endpoint (default local speech stack)
+ * - openai: call OpenAI-compatible speech endpoint with API key support
+ */
+function addVoiceAnnouncement(lines: string[], sayText: string) {
+  lines.push("# Voice announcement");
+  lines.push(`AGENT_NOTIFY_VOICE_MODE="${'$'}{AGENT_NOTIFY_VOICE_MODE:-${DEFAULT_VOICE_MODE}}"`);
+  lines.push(`AGENT_NOTIFY_VOICE_URL="${'$'}{AGENT_NOTIFY_VOICE_URL:-}"`);
+  lines.push(`AGENT_NOTIFY_VOICE_MODEL="${'$'}{AGENT_NOTIFY_VOICE_MODEL:-${DEFAULT_VOICE_MODEL}}"`);
+  lines.push(`AGENT_NOTIFY_VOICE_VOICE="${'$'}{AGENT_NOTIFY_VOICE_VOICE:-${DEFAULT_VOICE_NAME}}"`);
+  lines.push(`AGENT_NOTIFY_VOICE_RESPONSE_FORMAT="${'$'}{AGENT_NOTIFY_VOICE_RESPONSE_FORMAT:-${DEFAULT_VOICE_RESPONSE_FORMAT}}"`);
+  lines.push(`AGENT_NOTIFY_VOICE_TIMEOUT="${'$'}{AGENT_NOTIFY_VOICE_TIMEOUT:-6}"`);
+  lines.push(`AGENT_NOTIFY_VOICE_TEXT=${shellSingleQuote(sayText)}`);
+  lines.push("");
+  lines.push('if [ "$AGENT_NOTIFY_VOICE_MODE" = "script" ]; then');
+  lines.push(`  if [ -x "${DEFAULT_VOICE_COMMAND}" ]; then`);
+  lines.push(`    "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(sayText)}`);
+  lines.push(`  elif command -v "${DEFAULT_VOICE_COMMAND}" >/dev/null 2>&1; then`);
+  lines.push(`    sh "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(sayText)}`);
+  lines.push("  fi");
+  lines.push("else");
+  lines.push("  if [ -z \"$AGENT_NOTIFY_VOICE_URL\" ]; then");
+  lines.push("    if [ \"$AGENT_NOTIFY_VOICE_MODE\" = \"openai\" ]; then");
+  lines.push(`      AGENT_NOTIFY_VOICE_URL=${shellSingleQuote(DEFAULT_VOICE_OPENAI_URL)}`);
+  lines.push("    else");
+  lines.push(`      AGENT_NOTIFY_VOICE_URL=${shellSingleQuote(DEFAULT_VOICE_STACK_URL)}`);
+  lines.push("    fi");
+  lines.push("  fi");
+  lines.push("  if command -v curl >/dev/null 2>&1; then");
+  lines.push("    __agent_notify_voice_ext=\"${AGENT_NOTIFY_VOICE_RESPONSE_FORMAT}\"");
+  lines.push("    __agent_notify_voice_tmp_body=$(mktemp /tmp/agent-notify-voice-body.XXXXXX.json)");
+  lines.push("    __agent_notify_voice_tmp_file=$(mktemp /tmp/agent-notify-voice.XXXXXX.${__agent_notify_voice_ext})");
+  lines.push('    cat > "$__agent_notify_voice_tmp_body" <<EOF');
+  lines.push('{"model": "${AGENT_NOTIFY_VOICE_MODEL}",');
+  lines.push(' "input": "${AGENT_NOTIFY_VOICE_TEXT}",');
+  lines.push(' "voice": "${AGENT_NOTIFY_VOICE_VOICE}",');
+  lines.push(' "response_format": "${AGENT_NOTIFY_VOICE_RESPONSE_FORMAT}"');
+  lines.push("}");
+  lines.push("EOF");
+  lines.push("    __agent_notify_voice_code=0");
+  lines.push("    if [ \"$AGENT_NOTIFY_VOICE_MODE\" = \"openai\" ] && [ -n \"${AGENT_NOTIFY_VOICE_API_KEY:-}\" ]; then");
+  lines.push("      curl -m \"$AGENT_NOTIFY_VOICE_TIMEOUT\" -sS -X POST \"$AGENT_NOTIFY_VOICE_URL\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer $AGENT_NOTIFY_VOICE_API_KEY\" --data-binary \"@$__agent_notify_voice_tmp_body\" -o \"$__agent_notify_voice_tmp_file\" || __agent_notify_voice_code=$?");
+  lines.push("    else");
+  lines.push("      curl -m \"$AGENT_NOTIFY_VOICE_TIMEOUT\" -sS -X POST \"$AGENT_NOTIFY_VOICE_URL\" -H \"Content-Type: application/json\" --data-binary \"@$__agent_notify_voice_tmp_body\" -o \"$__agent_notify_voice_tmp_file\" || __agent_notify_voice_code=$?");
+  lines.push("    fi");
+  lines.push("    rm -f \"$__agent_notify_voice_tmp_body\"");
+  lines.push("    if [ \"$__agent_notify_voice_code\" -eq 0 ] && [ -s \"$__agent_notify_voice_tmp_file\" ]; then");
+  lines.push("      if command -v ffplay >/dev/null 2>&1; then");
+  lines.push("        ffplay -nodisp -autoexit -loglevel quiet \"$__agent_notify_voice_tmp_file\" >/dev/null 2>&1");
+  lines.push("      elif command -v mpv >/dev/null 2>&1; then");
+  lines.push("        mpv --really-quiet --no-terminal \"$__agent_notify_voice_tmp_file\" >/dev/null 2>&1");
+  lines.push("      elif command -v mpg123 >/dev/null 2>&1; then");
+  lines.push("        mpg123 -q \"$__agent_notify_voice_tmp_file\" >/dev/null 2>&1");
+  lines.push("      elif command -v paplay >/dev/null 2>&1; then");
+  lines.push("        paplay \"$__agent_notify_voice_tmp_file\" >/dev/null 2>&1");
+  lines.push("      elif command -v aplay >/dev/null 2>&1; then");
+  lines.push("        aplay \"$__agent_notify_voice_tmp_file\" >/dev/null 2>&1");
+  lines.push("      elif command -v afplay >/dev/null 2>&1; then");
+  lines.push("        afplay \"$__agent_notify_voice_tmp_file\" >/dev/null 2>&1");
+  lines.push("      fi");
+  lines.push("    fi");
+  lines.push("    rm -f \"$__agent_notify_voice_tmp_file\"");
+  lines.push("  fi");
+  lines.push("fi");
+  lines.push("");
 }
 
 function addTmuxMarquee(lines: string[], messageExpr: string) {
@@ -196,13 +270,7 @@ export function createScript(
   }
 
   if (options.voice) {
-    lines.push("# Voice announcement");
-    lines.push(`if [ -x "${DEFAULT_VOICE_COMMAND}" ]; then`);
-    lines.push(`  "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(sayText)}`);
-    lines.push(`elif command -v "${DEFAULT_VOICE_COMMAND}" >/dev/null 2>&1; then`);
-    lines.push(`  sh "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(sayText)}`);
-    lines.push("fi");
-    lines.push("");
+    addVoiceAnnouncement(lines, sayText);
   }
 
   if (options.tmux) {
@@ -314,13 +382,7 @@ export function generateCodexScript(
   }
 
   if (options.voice) {
-    lines.push("# Voice announcement");
-    lines.push(`if [ -x "${DEFAULT_VOICE_COMMAND}" ]; then`);
-    lines.push(`  "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(sayText)}`);
-    lines.push(`elif command -v "${DEFAULT_VOICE_COMMAND}" >/dev/null 2>&1; then`);
-    lines.push(`  sh "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(sayText)}`);
-    lines.push("fi");
-    lines.push("");
+    addVoiceAnnouncement(lines, sayText);
   }
 
   if (options.tmux) {
@@ -389,11 +451,7 @@ export function generateCliScript(
   }
 
   if (options.voice) {
-    lines.push("  if [ -x \"${DEFAULT_VOICE_COMMAND}\" ]; then");
-    lines.push(`    "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(saySuccess)}`);
-    lines.push(`  elif command -v "${DEFAULT_VOICE_COMMAND}" >/dev/null 2>&1; then`);
-    lines.push(`    sh "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(saySuccess)}`);
-    lines.push("  fi");
+    addVoiceAnnouncement(lines, saySuccess);
   }
 
   if (ntfyUrl) {
@@ -418,11 +476,7 @@ export function generateCliScript(
   }
 
   if (options.voice) {
-    lines.push("  if [ -x \"${DEFAULT_VOICE_COMMAND}\" ]; then");
-    lines.push(`    "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(sayFailed)}`);
-    lines.push(`  elif command -v "${DEFAULT_VOICE_COMMAND}" >/dev/null 2>&1; then`);
-    lines.push(`    sh "${DEFAULT_VOICE_COMMAND}" ${shellSingleQuote(sayFailed)}`);
-    lines.push("  fi");
+    addVoiceAnnouncement(lines, sayFailed);
   }
 
   if (ntfyUrl) {

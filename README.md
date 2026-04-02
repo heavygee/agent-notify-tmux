@@ -14,7 +14,7 @@ curl -fsSL https://raw.githubusercontent.com/heavygee/agent-notify-tmux/main/ins
 - Works with [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Cursor](https://cursor.sh), [OpenAI Codex](https://openai.com/index/openai-codex/), and CLI
 - Sound effects (terminal bell)
 - Desktop notifications (notify-send)
-- Voice announcements (custom local command in `~/coding/server-setup/.cursor/rules/system-voice.mdc`)
+- Voice announcements (pluggable TTS backend: legacy local command, OpenAI-compatible endpoint, or local speech stack)
 - tmux marquee status-line alerts (bottom-right status-right)
 - ntfy push notifications (self-hosted or ntfy.sh)
 
@@ -76,6 +76,39 @@ The installer shows a **diff preview** before applying changes, so you can revie
 **Automatic backup:** Before modifying any config file, the installer creates a timestamped backup (e.g., `settings.json.20250131-143022.bak`) in the same directory. If something goes wrong, simply rename the `.bak` file to restore.
 
 > **Note:** Since each platform supports different hook events, only the "task completion" hook is configured for consistency across all platforms.
+
+### Voice backend (optional)
+
+Voice announcements are optional and configurable through environment variables. The default mode is the legacy local command path.
+
+```bash
+export AGENT_NOTIFY_VOICE_MODE=script
+```
+
+Use local speech stack mode:
+
+```bash
+export AGENT_NOTIFY_VOICE_MODE=local
+export AGENT_NOTIFY_VOICE_URL=http://localhost:18008/v1/audio/speech
+```
+
+Use an OpenAI-compatible endpoint:
+
+```bash
+export AGENT_NOTIFY_VOICE_MODE=openai
+export AGENT_NOTIFY_VOICE_URL=https://api.openai.com/v1/audio/speech
+# Optional, if your endpoint requires auth:
+export AGENT_NOTIFY_VOICE_API_KEY=<token>
+```
+
+Common optional knobs:
+
+```bash
+export AGENT_NOTIFY_VOICE_MODEL=tts-1
+export AGENT_NOTIFY_VOICE_VOICE=xev
+export AGENT_NOTIFY_VOICE_RESPONSE_FORMAT=mp3
+export AGENT_NOTIFY_VOICE_TIMEOUT=6
+```
 
 ### Using Both Claude Code and Cursor
 

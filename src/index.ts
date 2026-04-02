@@ -117,7 +117,7 @@ async function main() {
     options: [
       { value: "sound", label: t("featureSound"), hint: "printf '\\a'" },
       { value: "notification", label: t("featureNotification"), hint: "notify-send" },
-      { value: "voice", label: t("featureVoice"), hint: "system-voice script" },
+      { value: "voice", label: t("featureVoice"), hint: "AGENT_NOTIFY_VOICE_* optional backend (script/openai/local stack)" },
       { value: "tmux", label: t("featureTmux"), hint: "tmux" },
       { value: "ntfy", label: t("featureNtfy"), hint: "curl" },
     ],

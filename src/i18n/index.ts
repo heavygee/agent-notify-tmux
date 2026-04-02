@@ -24,7 +24,7 @@ const messages = {
     notifyTitlePermission: "Claude Code",
     notifyMsgPermission: "Permission required",
 
-    // Voice (local voice command)
+    // Voice (pluggable, optional external backend)
     sayDone: "Task completed",
     sayWaiting: "Waiting for input",
     sayPermission: "Permission required",
@@ -188,7 +188,7 @@ const messages = {
     notifyTitlePermission: "Claude Code",
     notifyMsgPermission: "需要授权操作",
 
-    // Voice (local voice command)
+    // Voice (pluggable, optional external backend)
     sayDone: "任务完成",
     sayWaiting: "等待输入",
     sayPermission: "需要权限",

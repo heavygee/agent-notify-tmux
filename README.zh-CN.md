@@ -14,7 +14,7 @@ curl -fsSL https://raw.githubusercontent.com/heavygee/agent-notify-tmux/main/ins
 - 支持 [Claude Code](https://docs.anthropic.com/en/docs/claude-code)、[Cursor](https://cursor.sh)、[OpenAI Codex](https://openai.com/index/openai-codex/) 和命令行 (CLI)
 - 音效提示（终端响铃）
 - 桌面通知（notify-send）
-- 语音播报（自定义本地命令，`~/coding/server-setup/.cursor/rules/system-voice.mdc`）
+- 语音播报（可插拔 TTS 后端：传统本地命令、OpenAI 兼容接口或本地语音栈）
 - tmux 跑马灯状态栏提醒（右下角 status-right）
 - ntfy 推送通知（支持自托管或 ntfy.sh）
 
@@ -76,6 +76,38 @@ bun install && bun run dev
 **自动备份：** 修改任何配置文件前，安装程序会在同目录创建带时间戳的备份（如 `settings.json.20250131-143022.bak`）。如有问题，重命名 `.bak` 文件即可恢复。
 
 > **说明：** 由于各平台支持的 hook 事件不同，为保持一致性，仅配置"任务完成"这一个 hook。
+
+### 语音后端（可选）
+
+默认保持兼容旧行为，优先使用本地命令：
+
+```bash
+export AGENT_NOTIFY_VOICE_MODE=script
+```
+
+使用本地语音栈：
+
+```bash
+export AGENT_NOTIFY_VOICE_MODE=local
+export AGENT_NOTIFY_VOICE_URL=http://localhost:18008/v1/audio/speech
+```
+
+使用 OpenAI 兼容接口（含自建服务）：
+
+```bash
+export AGENT_NOTIFY_VOICE_MODE=openai
+export AGENT_NOTIFY_VOICE_URL=https://api.openai.com/v1/audio/speech
+export AGENT_NOTIFY_VOICE_API_KEY=<你的密钥>   # 可选，自托管服务按需设置
+```
+
+常用可选参数：
+
+```bash
+export AGENT_NOTIFY_VOICE_MODEL=tts-1
+export AGENT_NOTIFY_VOICE_VOICE=xev
+export AGENT_NOTIFY_VOICE_RESPONSE_FORMAT=mp3
+export AGENT_NOTIFY_VOICE_TIMEOUT=6
+```
 
 ### 同时使用 Claude Code 和 Cursor
 
