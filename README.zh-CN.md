@@ -145,6 +145,8 @@ export AGENT_NOTIFY_SUMMARY_FALLBACK_API_KEY=<openai-key>
 export AGENT_NOTIFY_SUMMARY_TIMEOUT=30
 ```
 
+`cursor-stop-wrapper.sh` 只在**最后一条 assistant 消息**的文本里解析 `AGENT_NOTIFY_SUMMARY {...}`（与 `cursor-done-sound.sh` 相同的 JSONL 过滤逻辑，配合 `tail -n $AGENT_NOTIFY_LAST_ASSISTANT_TAIL_LINES`，默认 500 行），**不会**在全文件里找「最后一次出现」的合约行，避免早期已发出的官方摘要覆盖后续多轮对话。若最后一条里没有合约 JSON，则由 done 脚本的 LLM 路径处理。
+
 在可用 transcript 的情况下，语音文本会优先使用 `<status>|<summary>` 结果，并和现有 `AGENT_NOTIFY_CONTEXT` 一起输出。
 
 LLM 请求体会写入临时文件，用 `jq --rawfile` 组装 JSON，再用 `curl --data-binary @文件` 发送；用户段长度由 `AGENT_NOTIFY_SUMMARY_MAX_USER_BYTES`（默认 512 KiB）限制，避免超大内容经 shell / `jq --arg` 传入导致失败。
