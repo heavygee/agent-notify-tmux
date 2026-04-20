@@ -1,5 +1,5 @@
 import type { HooksConfig, HookMatcher } from "../types";
-import { CLAUDE_SCRIPT_NAMES, CLAUDE_SCRIPT_NAME_LIST, CURSOR_SCRIPT_NAMES, CURSOR_SCRIPT_NAME_LIST } from "./scripts";
+import { CLAUDE_SCRIPT_NAMES, CLAUDE_SCRIPT_NAME_LIST, CURSOR_SCRIPT_NAMES, CURSOR_SCRIPT_NAME_LIST, CURSOR_STOP_WRAPPER_NAME } from "./scripts";
 import { toDisplayPath } from "../utils/path";
 
 /** Get hook command path for script (uses ~ format) */
@@ -18,7 +18,13 @@ function getOurClaudeScriptName(hook: Record<string, unknown>): string | null {
 function getOurCursorScriptName(hook: Record<string, unknown>): string | null {
   const command = hook.command;
   if (typeof command !== "string") return null;
-  return CURSOR_SCRIPT_NAME_LIST.find((name) => command.endsWith(name)) ?? null;
+  if (CURSOR_SCRIPT_NAME_LIST.find((name) => command.endsWith(name))) {
+    return "cursor-notify-script";
+  }
+  if (command.endsWith(CURSOR_STOP_WRAPPER_NAME)) {
+    return "cursor-notify-script";
+  }
+  return null;
 }
 
 /** Get script name if this is our hook (checks both Claude and Cursor) */
@@ -232,6 +238,16 @@ export function mergeCursorHooksConfig(
   binDir: string
 ): CursorHooksStructure {
   const ourConfig = createCursorHooksConfig(binDir);
+  const candidateHooks =
+    existing &&
+    typeof existing === "object" &&
+    "hooks" in existing &&
+    existing.hooks &&
+    typeof existing.hooks === "object" &&
+    !Array.isArray(existing.hooks)
+      ? existing.hooks
+      : existing;
+  const sourceHooks = (candidateHooks ?? {}) as CursorHooksStructure;
 
   if (!existing) {
     return ourConfig;
@@ -241,11 +257,12 @@ export function mergeCursorHooksConfig(
   const processedKeys = new Set<string>();
 
   // Preserve existing key order
-  for (const key of Object.keys(existing)) {
+  for (const key of Object.keys(sourceHooks)) {
     if (key === "stop" && ourConfig.stop) {
-      result[key] = mergeCursorHooksArray(existing[key] ?? [], ourConfig.stop);
+      const existingStop = sourceHooks[key];
+      result[key] = mergeCursorHooksArray(existingStop as Hook[], ourConfig.stop);
     } else {
-      result[key] = existing[key];
+      result[key] = sourceHooks[key];
     }
     processedKeys.add(key);
   }
@@ -262,10 +279,15 @@ export function mergeCursorHooksConfig(
 
 /** Create Cursor hooks config for our managed hooks */
 function createCursorHooksConfig(binDir: string): CursorHooksStructure {
+  const wrapperCommand = `${getScriptCommand(binDir, CURSOR_STOP_WRAPPER_NAME)}`;
   return {
     stop: [
       {
-        command: getScriptCommand(binDir, CURSOR_SCRIPT_NAMES.done),
+        command:
+        "AGENT_NOTIFY_ENV_FILE=\"$HOME/.config/agent-notify/.env\" AGENT_NOTIFY_DEBUG=1 AGENT_NOTIFY_VOICE_LOG_FILE=\"$HOME/.local/state/agent-notify/cursor-voice-debug.log\" AGENT_NOTIFY_VOICE_DEBUG=1 AGENT_NOTIFY_VOICE_RESPONSE_FORMAT=wav AGENT_NOTIFY_VOICE_PLAYER=aplay,paplay,ffplay,mpv,mpg123 AGENT_NOTIFY_VOICE_FALLBACK_WAV_PLAY=0 AGENT_NOTIFY_VOICE_PLAYER_ARGS=\"\" AGENT_NOTIFY_VOICE_MODE=local AGENT_NOTIFY_VOICE_URL=http://localhost:18008/v1/audio/speech AGENT_NOTIFY_VOICE_TIMEOUT=30 AGENT_NOTIFY_SUMMARY_ENABLED=1 AGENT_NOTIFY_SUMMARY_PRIMARY_URL=\"${AGENT_NOTIFY_SUMMARY_PRIMARY_URL:-http://100.121.154.23:8080/v1/chat/completions}\" AGENT_NOTIFY_SUMMARY_PRIMARY_MODEL=\"${AGENT_NOTIFY_SUMMARY_PRIMARY_MODEL:-qwen2.5-1.5b-instruct-q8_0}\" AGENT_NOTIFY_SUMMARY_FALLBACK_URL=\"${AGENT_NOTIFY_SUMMARY_FALLBACK_URL:-https://api.openai.com/v1/chat/completions}\" AGENT_NOTIFY_SUMMARY_FALLBACK_MODEL=\"${AGENT_NOTIFY_SUMMARY_FALLBACK_MODEL:-gpt-5.4-mini}\" AGENT_NOTIFY_SUMMARY_FALLBACK_API_KEY=\"${AGENT_NOTIFY_SUMMARY_FALLBACK_API_KEY:-${AGENT_NOTIFY_VOICE_API_KEY:-}}\" " +
+        "AGENT_NOTIFY_TMUX_MARQUEE=1 " +
+        "AGENT_NOTIFY_VOICE_STRICT_VOICE=0 " +
+          wrapperCommand,
       },
     ],
   };

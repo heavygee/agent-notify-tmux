@@ -111,6 +111,31 @@ mv "$tmp_dir/$binary" "$exe" ||
 chmod +x "$exe" ||
   error "Failed to set permissions on agent-notify executable"
 
+env_dir="$HOME/.config/agent-notify"
+env_file="$env_dir/.env"
+if [[ ! -f $env_file ]]; then
+  mkdir -p "$env_dir" || error "Failed to create ${env_dir}"
+  cat <<'EOF' > "$env_file"
+# agent-notify runtime environment
+# Keep secrets in this file, not in hooks.
+# This file is optional. Set only what you need to override.
+
+AGENT_NOTIFY_VOICE_MODE=local
+AGENT_NOTIFY_VOICE_URL=http://localhost:18008/v1/audio/speech
+AGENT_NOTIFY_VOICE_TIMEOUT=30
+#AGENT_NOTIFY_VOICE_INCLUDE_CONTEXT=0
+
+AGENT_NOTIFY_SUMMARY_ENABLED=1
+AGENT_NOTIFY_SUMMARY_PRIMARY_URL=http://100.121.154.23:8080/v1/chat/completions
+AGENT_NOTIFY_SUMMARY_PRIMARY_MODEL=qwen2.5-1.5b-instruct-q8_0
+AGENT_NOTIFY_SUMMARY_FALLBACK_URL=https://api.openai.com/v1/chat/completions
+AGENT_NOTIFY_SUMMARY_FALLBACK_MODEL=gpt-5.4-mini
+#AGENT_NOTIFY_SUMMARY_FALLBACK_API_KEY=
+#AGENT_NOTIFY_VOICE_API_KEY=
+# Tip: set AGENT_NOTIFY_SUMMARY_FALLBACK_API_KEY (recommended) or AGENT_NOTIFY_VOICE_API_KEY.
+EOF
+fi
+
 success "agent-notify was installed successfully to $Bold_Green$(tildify "$exe")"
 
 if command -v agent-notify >/dev/null; then

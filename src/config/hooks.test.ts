@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { mergeHooksConfig } from "./hooks";
+import { mergeCursorHooksConfig, mergeHooksConfig } from "./hooks";
 import type { HooksConfig } from "../types";
+import { CURSOR_STOP_WRAPPER_NAME, CURSOR_SCRIPT_NAME_LIST } from "./scripts";
 
 describe("mergeHooksConfig", () => {
   const testBinDir = "/Users/test/.bin";
@@ -241,6 +242,41 @@ describe("mergeHooksConfig", () => {
       // Notification should be preserved unchanged
       expect(result.Notification).toEqual(existing.Notification);
     });
+  });
+});
+
+describe("mergeCursorHooksConfig", () => {
+  test("replaces existing Cursor notifier hook with stop wrapper", () => {
+    const existing = {
+      stop: [
+        { command: "/user/custom.sh" },
+        { command: "~/.bin/cursor-done-sound.sh" },
+      ],
+    };
+    const result = mergeCursorHooksConfig(existing, "/Users/test/.bin");
+
+    expect(result.stop?.[0]?.command).toBe("/user/custom.sh");
+    expect(result.stop?.[1]?.command).toContain(`/${CURSOR_STOP_WRAPPER_NAME}`);
+  });
+
+  test("adds wrapper when Cursor notifier hook is not present", () => {
+    const existing = { stop: [{ command: "/user/custom.sh" }] };
+    const result = mergeCursorHooksConfig(existing, "/Users/test/.bin");
+
+    expect(result.stop?.[0]?.command).toBe("/user/custom.sh");
+    expect(result.stop?.[1]?.command).toContain(`/${CURSOR_STOP_WRAPPER_NAME}`);
+  });
+
+  test("uses wrapper script for Cursor notifier event", () => {
+    const result = mergeCursorHooksConfig({}, "/Users/test/.bin");
+
+    expect(result.stop?.[0]?.command).toContain(CURSOR_STOP_WRAPPER_NAME);
+  });
+});
+
+describe("getCursorScriptConfig", () => {
+  test("cursor scripts are recognized by merge helpers", () => {
+    expect(CURSOR_SCRIPT_NAME_LIST).toContain("cursor-done-sound.sh");
   });
 });
 

@@ -151,30 +151,12 @@ export function mergeCursorHooksConfig(
   const hasVersion = "version" in existing;
 
   if (isWrapped || hasVersion) {
-    const result: CursorHooksConfig = {};
-    const existingKeys = Object.keys(existing);
-    const hasHooks = existingKeys.includes("hooks");
     const mergedVersion =
       typeof existing.version === "number" ? existing.version : 1;
-
-    for (const key of existingKeys) {
-      if (key === "hooks") {
-        result[key] = mergedHooksPayload;
-      } else if (key === "version") {
-        result[key] = mergedVersion;
-      } else {
-        result[key] = existing[key];
-      }
-    }
-
-    if (!hasHooks) {
-      result.hooks = mergedHooksPayload;
-    }
-    if (!hasVersion) {
-      result.version = 1;
-    }
-
-    return result;
+    return {
+      version: mergedVersion,
+      hooks: mergedHooksPayload,
+    };
   }
 
   // Legacy direct configs: migrate to wrapped format for current Cursor schema.

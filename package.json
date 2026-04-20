@@ -9,6 +9,8 @@
     "build": "bun build --compile --minify --sourcemap src/index.ts --outfile dist/agent-notify",
     "test": "bun test",
     "test:ci": "bun test",
+    "deploy:cursor": "bun scripts/deploy-cursor-local.ts",
+    "verify:voice": "bun scripts/verify-voice-chain.ts",
     "scan:secrets": "docker run --rm -v \"$PWD\":/path zricethezav/gitleaks:latest detect --source /path --verbose --redact --exit-code 1",
     "setup:githooks": "bash ./scripts/bootstrap-git-hooks.sh"
   },

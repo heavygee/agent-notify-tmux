@@ -7,10 +7,14 @@ import {
   getCursorScriptConfigs,
   generateClaudeScripts,
   generateCursorScripts,
+  generateCursorStopHookWrapperScript,
+  generateCursorSessionContextToolScript,
   generateCodexScript,
   generateCliScript,
   CODEX_SCRIPT_NAME,
   CLI_SCRIPT_NAME,
+  CURSOR_STOP_WRAPPER_NAME,
+  CURSOR_SESSION_CONTEXT_TOOL_NAME,
   type FeatureOptions,
   type NtfyConfig,
 } from "./config/scripts";
@@ -33,11 +37,174 @@ import { configureShell, getManualConfig, getShellConfigPath } from "./utils/she
 import { backupFiles, type BackupResult } from "./utils/backup";
 import { setLocale, t } from "./i18n";
 import type { SoundName, Platform } from "./types";
-import { SETTINGS_FILE, CURSOR_HOOKS_FILE, CODEX_CONFIG_FILE } from "./config/constants";
+import { SETTINGS_FILE, CURSOR_HOOKS_FILE, CODEX_CONFIG_FILE, AGENT_NOTIFY_CONFIG_DIR, AGENT_NOTIFY_ENV_FILE } from "./config/constants";
 
 const DEFAULT_BIN_DIR = join(homedir(), ".bin");
+const AGENT_NOTIFY_ENV_TEMPLATE = `# Agent notify runtime environment
+# https://github.com/heavygee/agent-notify-tmux
+#
+# Put sensitive values here, not in hook files.
+# You can override any AGENT_NOTIFY_* variable before install.
+
+AGENT_NOTIFY_VOICE_MODE=local
+AGENT_NOTIFY_VOICE_URL=http://localhost:18008/v1/audio/speech
+AGENT_NOTIFY_VOICE_TIMEOUT=30
+#AGENT_NOTIFY_VOICE_INCLUDE_CONTEXT=0
+
+AGENT_NOTIFY_SUMMARY_ENABLED=1
+AGENT_NOTIFY_SUMMARY_PRIMARY_URL=http://100.121.154.23:8080/v1/chat/completions
+AGENT_NOTIFY_SUMMARY_PRIMARY_MODEL=qwen2.5-1.5b-instruct-q8_0
+AGENT_NOTIFY_SUMMARY_FALLBACK_URL=https://api.openai.com/v1/chat/completions
+AGENT_NOTIFY_SUMMARY_FALLBACK_MODEL=gpt-5.4-mini
+#AGENT_NOTIFY_SUMMARY_FALLBACK_API_KEY=
+#AGENT_NOTIFY_VOICE_API_KEY=
+`;
+
+type StatusItem = { label: string; state: "green" | "yellow" | "red"; detail: string };
+
+async function getFileStatus(path: string): Promise<{ exists: boolean; mtime: string; size: number }> {
+  try {
+    const file = Bun.file(path);
+    if (!(await file.exists())) {
+      return { exists: false, mtime: "-", size: 0 };
+    }
+    const stat = await file.stat();
+    return { exists: true, mtime: new Date(stat.mtime).toISOString(), size: stat.size };
+  } catch {
+    return { exists: false, mtime: "-", size: 0 };
+  }
+}
+
+async function getCursorHooksState() {
+  const hooksPath = CURSOR_HOOKS_FILE;
+  const hooksFile = Bun.file(hooksPath);
+  const exists = await hooksFile.exists();
+  if (!exists) {
+    return { exists: false, hasStopHook: false };
+  }
+  try {
+    const content = await hooksFile.text();
+    return {
+      exists: true,
+      hasStopHook: content.includes("cursor-stop-wrapper.sh")
+    };
+  } catch {
+    return { exists: true, hasStopHook: false };
+  }
+}
+
+async function checkCliScripts() {
+  const candidates = [
+    join(homedir(), ".bin"),
+    join(homedir(), ".local/bin"),
+  ];
+  const scripts = [
+    "cursor-stop-wrapper.sh",
+    "cursor-done-sound.sh",
+    "agent-notify-session-context.sh",
+  ];
+  const found: Record<string, boolean> = {};
+  for (const script of scripts) {
+    let present = false;
+    for (const dir of candidates) {
+      const path = join(dir, script);
+      const exists = await Bun.file(path).exists();
+      if (exists) {
+        found[script] = true;
+        present = true;
+        break;
+      }
+    }
+    if (!present) {
+      found[script] = false;
+    }
+  }
+  return found;
+}
+
+function colorState(state: "green" | "yellow" | "red") {
+  if (state === "green") return pc.green;
+  if (state === "yellow") return pc.yellow;
+  return pc.red;
+}
+
+async function printStatus() {
+  const home = homedir();
+  const items: StatusItem[] = [];
+
+  const stopHook = await getCursorHooksState();
+  if (!stopHook.exists) {
+    items.push({
+      label: "Cursor hooks file",
+      state: "red",
+      detail: CURSOR_HOOKS_FILE,
+    });
+  } else if (!stopHook.hasStopHook) {
+    items.push({
+      label: "Cursor stop wrapper",
+      state: "yellow",
+      detail: "installed: no cursor stop wrapper command found",
+    });
+  } else {
+    items.push({
+      label: "Cursor stop wrapper",
+      state: "green",
+      detail: "installed in cursor hooks",
+    });
+  }
+
+  const scripts = await checkCliScripts();
+  items.push({
+    label: "cursor-stop-wrapper.sh",
+    state: scripts["cursor-stop-wrapper.sh"] ? "green" : "yellow",
+    detail: "runtime wrapper script",
+  });
+  items.push({
+    label: "cursor-done-sound.sh",
+    state: scripts["cursor-done-sound.sh"] ? "green" : "yellow",
+    detail: "runtime done script",
+  });
+  items.push({
+    label: "agent-notify-session-context.sh",
+    state: scripts["agent-notify-session-context.sh"] ? "green" : "yellow",
+    detail: "session context resolver",
+  });
+
+  const env = await getFileStatus(AGENT_NOTIFY_ENV_FILE);
+  items.push({
+    label: "agent-notify env",
+    state: env.exists ? "green" : "yellow",
+    detail: `${AGENT_NOTIFY_ENV_FILE} (${env.exists ? `${env.size} bytes` : "not found"})`,
+  });
+
+  const stopLog = await getFileStatus(join(home, ".local/state/agent-notify/cursor-stop-debug.log"));
+  const voiceLog = await getFileStatus(join(home, ".local/state/agent-notify/cursor-voice-debug.log"));
+  items.push({
+    label: "cursor-stop-debug.log",
+    state: stopLog.exists ? (stopLog.size > 0 ? "green" : "yellow") : "red",
+    detail: stopLog.exists ? `${stopLog.size} bytes, mtime ${stopLog.mtime}` : "not found",
+  });
+  items.push({
+    label: "cursor-voice-debug.log",
+    state: voiceLog.exists ? (voiceLog.size > 0 ? "green" : "yellow") : "red",
+    detail: voiceLog.exists ? `${voiceLog.size} bytes, mtime ${voiceLog.mtime}` : "not found",
+  });
+
+  console.log(pc.bold("agent-notify status"));
+  for (const item of items) {
+    const color = colorState(item.state);
+    const mark = item.state === "green" ? "ok" : item.state === "yellow" ? "warn" : "err";
+    console.log(` ${color(mark)} ${item.label}: ${item.detail}`);
+  }
+}
 
 async function main() {
+  const args = process.argv.slice(2);
+  if (args.includes("status") || args.includes("--status") || args.includes("-s")) {
+    await printStatus();
+    return;
+  }
+
   console.clear();
 
   // 0. Select language
@@ -117,7 +284,7 @@ async function main() {
     options: [
       { value: "sound", label: t("featureSound"), hint: "printf '\\a'" },
       { value: "notification", label: t("featureNotification"), hint: "notify-send" },
-      { value: "voice", label: t("featureVoice"), hint: "AGENT_NOTIFY_VOICE_* optional backend (script/openai/local stack)" },
+      { value: "voice", label: t("featureVoice"), hint: "AGENT_NOTIFY_VOICE_* (default local stack, optional legacy script/openai)" },
       { value: "tmux", label: t("featureTmux"), hint: "tmux" },
       { value: "ntfy", label: t("featureNtfy"), hint: "curl" },
     ],
@@ -256,6 +423,12 @@ async function main() {
   await ensureDir(binDir);
   spinner.stop(t("dirReady"));
 
+  // Ensure local runtime environment file exists so secrets stay out of hook JSON.
+  await ensureDir(AGENT_NOTIFY_CONFIG_DIR);
+  if (!(await Bun.file(AGENT_NOTIFY_ENV_FILE).exists())) {
+    await Bun.write(AGENT_NOTIFY_ENV_FILE, AGENT_NOTIFY_ENV_TEMPLATE);
+  }
+
   spinner.start(t("installingScripts"));
 
   const installedScripts: string[] = [];
@@ -283,10 +456,20 @@ async function main() {
         writeExecutable(join(binDir, name), content)
       )
     );
+    await writeExecutable(
+      join(binDir, CURSOR_SESSION_CONTEXT_TOOL_NAME),
+      generateCursorSessionContextToolScript()
+    );
+    await writeExecutable(
+      join(binDir, CURSOR_STOP_WRAPPER_NAME),
+      generateCursorStopHookWrapperScript()
+    );
     installedScripts.push(...cursorScriptConfigs.map((c, i) =>
       `  ${pc.dim("•")} ${binDirDisplay}/${c.name} ${pc.dim(`(${sounds[i]})`)}`
     ));
-    totalScripts += cursorScriptConfigs.length;
+    installedScripts.push(`  ${pc.dim("•")} ${binDirDisplay}/${CURSOR_SESSION_CONTEXT_TOOL_NAME}`);
+    installedScripts.push(`  ${pc.dim("•")} ${binDirDisplay}/${CURSOR_STOP_WRAPPER_NAME}`);
+    totalScripts += cursorScriptConfigs.length + 2;
   }
 
   // Install Codex script
@@ -504,7 +687,7 @@ async function main() {
     resultLines.push(
       "",
       pc.green(t("cursorConfiguredHooks")),
-      `  ${pc.dim("•")} stop → cursor-done-sound.sh`
+      `  ${pc.dim("•")} stop → ${CURSOR_STOP_WRAPPER_NAME}`
     );
   }
 

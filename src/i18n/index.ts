@@ -25,7 +25,7 @@ const messages = {
     notifyMsgPermission: "Permission required",
 
     // Voice (pluggable, optional external backend)
-    sayDone: "Task completed",
+    sayDone: "beep Task completed",
     sayWaiting: "Waiting for input",
     sayPermission: "Permission required",
 
@@ -91,7 +91,7 @@ const messages = {
     cursorNotifyMsgWaiting: "Waiting for your input",
     cursorNotifyTitlePermission: "Cursor",
     cursorNotifyMsgPermission: "Permission required",
-    cursorSayDone: "Cursor task completed",
+    cursorSayDone: "beep Cursor task completed",
     cursorSayWaiting: "Cursor waiting for input",
     cursorSayPermission: "Cursor permission required",
 
@@ -100,7 +100,7 @@ const messages = {
     codexCommentDone: "Codex task completion notification",
     codexNotifyTitle: "Codex",
     codexNotifyMsgDone: "Task completed",
-    codexSayDone: "Codex task completed",
+    codexSayDone: "beep Codex task completed",
     codexSoundDone: "Codex task completed",
     codexLimitHint: "(Codex only supports task completion event)",
 
@@ -189,7 +189,7 @@ const messages = {
     notifyMsgPermission: "需要授权操作",
 
     // Voice (pluggable, optional external backend)
-    sayDone: "任务完成",
+    sayDone: "beep 任务完成",
     sayWaiting: "等待输入",
     sayPermission: "需要权限",
 
@@ -255,7 +255,7 @@ const messages = {
     cursorNotifyMsgWaiting: "等待你的输入",
     cursorNotifyTitlePermission: "Cursor",
     cursorNotifyMsgPermission: "需要授权操作",
-    cursorSayDone: "Cursor 任务完成",
+    cursorSayDone: "beep Cursor 任务完成",
     cursorSayWaiting: "Cursor 等待输入",
     cursorSayPermission: "Cursor 需要权限",
 
@@ -264,7 +264,7 @@ const messages = {
     codexCommentDone: "Codex 任务完成通知",
     codexNotifyTitle: "Codex",
     codexNotifyMsgDone: "任务已完成",
-    codexSayDone: "Codex 任务完成",
+    codexSayDone: "beep Codex 任务完成",
     codexSoundDone: "Codex 任务完成",
     codexLimitHint: "（Codex 目前仅支持任务完成事件）",
 
