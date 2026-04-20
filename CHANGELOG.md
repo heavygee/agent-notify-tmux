@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.4](https://github.com/heavygee/agent-notify-tmux/compare/v2.5.3...v2.5.4) (2026-04-20)
+
+
+### Bug Fixes
+
+* **voice:** wrapper hardening, ALSA-first TTS, docs, deploy helpers ([429c15d](https://github.com/heavygee/agent-notify-tmux/commit/429c15d33209fcf54f60005a3bfc15287710f0b2))
+
 ## 2.5.1 (2026-01-31)
 
 
