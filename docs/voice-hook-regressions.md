@@ -40,6 +40,14 @@ Bash does **not** support combining string length **`${#var}`** with default **`
 
 **Prevention:** Use a separate variable, e.g. `len="${#var}"`, then log `len`. Tests reject `#__agent_notify_last_asst:-` in generated `cursor-done-sound.sh`.
 
+### 6. Stale `AGENT_NOTIFY_SUMMARY` from an earlier turn (not the latest assistant)
+
+**Problem:** Scanning the whole transcript for `AGENT_NOTIFY_SUMMARY` and taking the **last matching line** still picks an **old** contract if **later** assistant turns did **not** repeat the substring. The user hears or sees metadata from a completed step, not the final assistant output.
+
+**Fix:** Extract **last assistant plain text** with the same `jq` program as `cursor-done-sound.sh` (`tail -n $AGENT_NOTIFY_LAST_ASSISTANT_TAIL_LINES` then `jq -R -s -r '...'`). Parse `AGENT_NOTIFY_SUMMARY {...}` **only** from that text. Log `summary_source=transcript_last_assistant_contract`. If there is no JSON in the latest assistant text, the wrapper leaves contract fields empty and **`cursor-done-sound.sh`** uses LLM / markers on recent content.
+
+**Prevention:** Tests assert `transcript_last_assistant_contract` and `AGENT_NOTIFY_LAST_ASSISTANT_TAIL_LINES` appear in the generated wrapper; there is no full-file `rg "AGENT_NOTIFY_SUMMARY"` path anymore.
+
 ## Logs that prove health (post-fix)
 
 For a real agent stop you want to see:

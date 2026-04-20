@@ -90,6 +90,9 @@ describe("generate scripts with optional voice output", () => {
     expect(wrapperScript).toContain("[ -z \"${AGENT_NOTIFY_VOICE_LOG_FILE:-}\" ]");
     expect(wrapperScript).toContain("[ -z \"${AGENT_NOTIFY_MODEL:-}\" ]");
     expect(wrapperScript).toContain("[ -z \"${AGENT_NOTIFY_STOP_ACTION:-}\" ]");
+    expect(wrapperScript).toContain("transcript_last_assistant_contract");
+    expect(wrapperScript).toContain("AGENT_NOTIFY_LAST_ASSISTANT_TAIL_LINES");
+    expect(wrapperScript).toContain('tail -n "$AGENT_NOTIFY_LAST_ASSISTANT_TAIL_LINES"');
   });
 
   test("cli scripts include generated voice backend block for failure and success paths", () => {

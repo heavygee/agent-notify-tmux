@@ -1153,27 +1153,22 @@ if [ -n "${'$'}AGENT_NOTIFY_PAYLOAD" ] && command -v jq >/dev/null 2>&1; then
   [ -n "${'$'}AGENT_NOTIFY_SUMMARY_TEXT" ] && export AGENT_NOTIFY_SUMMARY_TEXT
 fi
 __agent_notify_summary_payload_source=
-if [ -n "${'$'}{AGENT_NOTIFY_TRANSCRIPT_PATH:-${'$'}{transcript_path:-}}" ] && [ -s "${'$'}{AGENT_NOTIFY_TRANSCRIPT_PATH:-${'$'}{transcript_path:-}}" ] && command -v jq >/dev/null 2>&1 && command -v rg >/dev/null 2>&1; then
-    __agent_notify_summary_payload_line="${'$'}(rg "AGENT_NOTIFY_SUMMARY" "${'$'}{AGENT_NOTIFY_TRANSCRIPT_PATH:-${'$'}{transcript_path:-}}" 2>/dev/null | tail -n 1 || true)"
-    if [ -n "${'$'}__agent_notify_summary_payload_line" ]; then
-      __agent_notify_summary_payload_source="transcript_full_scan"
-    else
-      __agent_notify_summary_payload_line="${'$'}(tail -n 220 "${'$'}{AGENT_NOTIFY_TRANSCRIPT_PATH:-${'$'}{transcript_path:-}}" 2>/dev/null | rg \"AGENT_NOTIFY_SUMMARY\" | tail -n 1 || true)"
-      [ -n "${'$'}__agent_notify_summary_payload_line" ] && __agent_notify_summary_payload_source="transcript_tail_220"
-    fi
-  if [ -n "${'$'}__agent_notify_summary_payload_line" ]; then
-    __agent_notify_summary_payload_text="${'$'}(printf "%s" "${'$'}__agent_notify_summary_payload_line" | jq -r '[.message.content[]? | select(.type=="text" and (.text|type=="string")) | .text // ""] | join(" ")' 2>/dev/null || true)"
-    __agent_notify_summary_payload_json="${'$'}(printf "%s" "${'$'}__agent_notify_summary_payload_text" | tr '\\n' ' ' | sed -nE 's/.*AGENT_NOTIFY_SUMMARY[[:space:]]*(\\{.*\\})/\\1/p')"
-    if [ -n "${'$'}__agent_notify_summary_payload_json" ]; then
-      __agent_notify_contract_summary="${'$'}(printf "%s" "${'$'}__agent_notify_summary_payload_json" | jq -r '.summary // empty' 2>/dev/null || true)"
-      __agent_notify_contract_action="${'$'}(printf "%s" "${'$'}__agent_notify_summary_payload_json" | jq -r '.action // empty' 2>/dev/null || true)"
-      [ -n "${'$'}__agent_notify_contract_summary" ] && AGENT_NOTIFY_SUMMARY_TEXT="${'$'}__agent_notify_contract_summary" && export AGENT_NOTIFY_SUMMARY_TEXT
-      [ -n "${'$'}__agent_notify_contract_action" ] && AGENT_NOTIFY_STOP_ACTION="${'$'}__agent_notify_contract_action"
-      AGENT_NOTIFY_AGENT_ID="${'$'}{AGENT_NOTIFY_AGENT_ID:-${'$'}(printf "%s" "${'$'}__agent_notify_summary_payload_json" | jq -r '.agent // empty' 2>/dev/null || true)}"
-      AGENT_NOTIFY_PROJECT="${'$'}{AGENT_NOTIFY_PROJECT:-${'$'}(printf "%s" "${'$'}__agent_notify_summary_payload_json" | jq -r '.project // empty' 2>/dev/null || true)}"
-      AGENT_NOTIFY_MODEL="${'$'}{AGENT_NOTIFY_MODEL:-${'$'}(printf "%s" "${'$'}__agent_notify_summary_payload_json" | jq -r '.model // empty' 2>/dev/null || true)}"
-      AGENT_NOTIFY_STATUS="${'$'}{AGENT_NOTIFY_STATUS:-${'$'}(printf "%s" "${'$'}__agent_notify_summary_payload_json" | jq -r '.status // empty' 2>/dev/null || true)}"
-    fi
+if [ -n "${'$'}{AGENT_NOTIFY_TRANSCRIPT_PATH:-${'$'}{transcript_path:-}}" ] && [ -s "${'$'}{AGENT_NOTIFY_TRANSCRIPT_PATH:-${'$'}{transcript_path:-}}" ] && command -v jq >/dev/null 2>&1; then
+  __agent_notify_tp="${'$'}{AGENT_NOTIFY_TRANSCRIPT_PATH:-${'$'}{transcript_path:-}}"
+  AGENT_NOTIFY_LAST_ASSISTANT_TAIL_LINES="${'$'}{AGENT_NOTIFY_LAST_ASSISTANT_TAIL_LINES:-500}"
+  __agent_notify_last_asst="${'$'}(tail -n "${'$'}AGENT_NOTIFY_LAST_ASSISTANT_TAIL_LINES" "${'$'}__agent_notify_tp" 2>/dev/null | jq -R -s -r '${CURSOR_JSONL_LAST_ASSISTANT_JQ_FILTER}' 2>/dev/null || true)"
+  __agent_notify_summary_payload_text="${'$'}__agent_notify_last_asst"
+  __agent_notify_summary_payload_json="${'$'}(printf "%s" "${'$'}__agent_notify_summary_payload_text" | tr '\\n' ' ' | sed -nE 's/.*AGENT_NOTIFY_SUMMARY[[:space:]]*(\\{.*\\})/\\1/p')"
+  if [ -n "${'$'}__agent_notify_summary_payload_json" ]; then
+    __agent_notify_summary_payload_source="transcript_last_assistant_contract"
+    __agent_notify_contract_summary="${'$'}(printf "%s" "${'$'}__agent_notify_summary_payload_json" | jq -r '.summary // empty' 2>/dev/null || true)"
+    __agent_notify_contract_action="${'$'}(printf "%s" "${'$'}__agent_notify_summary_payload_json" | jq -r '.action // empty' 2>/dev/null || true)"
+    [ -n "${'$'}__agent_notify_contract_summary" ] && AGENT_NOTIFY_SUMMARY_TEXT="${'$'}__agent_notify_contract_summary" && export AGENT_NOTIFY_SUMMARY_TEXT
+    [ -n "${'$'}__agent_notify_contract_action" ] && AGENT_NOTIFY_STOP_ACTION="${'$'}__agent_notify_contract_action"
+    AGENT_NOTIFY_AGENT_ID="${'$'}{AGENT_NOTIFY_AGENT_ID:-${'$'}(printf "%s" "${'$'}__agent_notify_summary_payload_json" | jq -r '.agent // empty' 2>/dev/null || true)}"
+    AGENT_NOTIFY_PROJECT="${'$'}{AGENT_NOTIFY_PROJECT:-${'$'}(printf "%s" "${'$'}__agent_notify_summary_payload_json" | jq -r '.project // empty' 2>/dev/null || true)}"
+    AGENT_NOTIFY_MODEL="${'$'}{AGENT_NOTIFY_MODEL:-${'$'}(printf "%s" "${'$'}__agent_notify_summary_payload_json" | jq -r '.model // empty' 2>/dev/null || true)}"
+    AGENT_NOTIFY_STATUS="${'$'}{AGENT_NOTIFY_STATUS:-${'$'}(printf "%s" "${'$'}__agent_notify_summary_payload_json" | jq -r '.status // empty' 2>/dev/null || true)}"
   fi
 fi
 export AGENT_NOTIFY_EVENT_ID
